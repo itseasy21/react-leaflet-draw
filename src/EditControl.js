@@ -1,5 +1,6 @@
+/* eslint-disable guard-for-in */
+/* eslint-disable func-style */
 import { PropTypes } from 'prop-types';
-import Draw from 'leaflet-draw'; // eslint-disable-line
 import isEqual from 'fast-deep-equal';
 import React, { useRef } from 'react';
 import { useLeafletContext } from '@react-leaflet/core';
@@ -21,34 +22,39 @@ const eventHandlers = {
   onDeleteStop: 'draw:deletestop',
 };
 
-function EditControl(props) {
-  const context = useLeafletContext();
+
+export function EditControl(props) {
+  let context;
+  try {
+    context = useLeafletContext();
+  } catch (e) {
+    // If context is not available, do not render anything (hack for React 19 context error)
+    return null;
+  }
   const drawRef = useRef();
   const propsRef = useRef(props);
 
-  function onDrawCreate(e) {
+  const onDrawCreate = (e) => {
     const { onCreated } = props;
     const container = context.layerContainer || context.map;
     container.addLayer(e.layer);
     onCreated && onCreated(e);
-  }
+  };
 
   React.useEffect(() => {
     const { map } = context;
     const { onMounted } = props;
 
     for (const key in eventHandlers) {
-      if (Object.prototype.hasOwnProperty.call(eventHandlers, key)) {
-        map.on(eventHandlers[key], (evt) => {
-          let handlers = Object.keys(eventHandlers).filter(
-            (handler) => eventHandlers[handler] === evt.type
-          );
-          if (handlers.length === 1) {
-            let handler = handlers[0];
-            props[handler] && props[handler](evt);
-          }
-        });
-      }
+      map.on(eventHandlers[key], (evt) => {
+        let handlers = Object.keys(eventHandlers).filter(
+          (handler) => eventHandlers[handler] === evt.type
+        );
+        if (handlers.length === 1) {
+          let handler = handlers[0];
+          props[handler] && props[handler](evt);
+        }
+      });
     }
     map.on(leaflet.Draw.Event.CREATED, onDrawCreate);
     drawRef.current = createDrawElement(props, context);
@@ -74,7 +80,7 @@ function EditControl(props) {
       isEqual(props.edit, propsRef.current.edit) &&
       props.position === propsRef.current.position
     ) {
-      return undefined;
+      return;
     }
     const { map } = context;
 
@@ -86,14 +92,12 @@ function EditControl(props) {
     onMounted && onMounted(drawRef.current);
 
     return () => {
-      if (drawRef.current) {
-        drawRef.current.remove(map);
-      }
+      drawRef.current.remove(map);
     };
   }, [
-    props.draw, 
-    props.edit, 
-    props.position, 
+    props.draw,
+    props.edit,
+    props.position,
     props.onCreated,
     props.onDeleted,
     props.onEdited
